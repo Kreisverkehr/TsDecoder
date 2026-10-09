@@ -3,12 +3,16 @@
 	<PropertyGroup>
 		<TargetFramework>net6.0</TargetFramework>
 		<Version>4.0.0-alpha</Version>
-		<Authors>Lewis Kirkaldie</Authors>
-		<Company>Cinegy GmbH</Company>
-		<Description>An MPEG2 Transport Stream decoder, in C# using NET 6.0</Description>
+		<PackageId>Kreisverkehr.TsDecoder</PackageId>
+		<Authors>Lewis Kirkaldie; Kreisverkehr</Authors>
+		<Company>Kreisverkehr</Company>
+		<Description>Unofficial fork of Cinegy.TsDecoder, an MPEG2 Transport Stream decoder for .NET 6.</Description>
 		<Copyright>Cinegy GmbH</Copyright>
-		<PackageTags>Transport Stream MPEGTS</PackageTags>
-		<PackageProjectUrl>https://github.com/Cinegy/TsDecoder</PackageProjectUrl>
+		<PackageTags>Transport Stream MPEGTS unofficial fork Kreisverkehr</PackageTags>
+		<PackageProjectUrl>https://github.com/Kreisverkehr/TsDecoder</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/Kreisverkehr/TsDecoder</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
 		<NeutralLanguage />
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>

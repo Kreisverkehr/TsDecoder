@@ -1,30 +1,31 @@
-﻿# Cinegy Transport Stream Decoder Library
+﻿# Kreisverkehr.TsDecoder
 
-Use this library to decode MPEGTS (including DVB) transport streams - tested with various streams, from Multicast and File sources, with single- and multi-program streams.
+An **unofficial fork** of [Cinegy/TsDecoder](https://github.com/Cinegy/TsDecoder), maintained and published independently by Kreisverkehr. This project and the `Kreisverkehr.TsDecoder` NuGet package are not affiliated with, endorsed by, or published by Cinegy GmbH. For the original project and its official package, use the links above.
 
-## How easy is it?
+The fork keeps the existing `Cinegy.TsDecoder` .NET namespaces for API compatibility. Its separately named NuGet package is:
 
-Assuming you have some data from a source as a byte array (e.g. from a UDP packet or from a file), just add them to the decoder!
-
-```
-	_tsDecoder.AddData(byteArrayData);
-	
+```sh
+dotnet add package Kreisverkehr.TsDecoder
 ```
 
-Once you start feeding in packets, the class will start to populate with data - allowing you to explore the Program Allocation Table, Service Descriptors, or even start grabbing the data from an individual elementary stream.
+## Usage
 
-See all of this in action inside the Cinegy TS Analyser tool here: [GitHub] [https://github.com/cinegy/tsanalyser]
-    
-## Getting the library
+Feed transport-stream data to the decoder as byte arrays, for example from a UDP packet or file:
 
-Just to make your life easier, we auto-build this using AppVeyor and push to NuGet - here is how we are doing right now: 
+```csharp
+_tsDecoder.AddData(byteArrayData);
+```
 
-[![Build status](https://ci.appveyor.com/api/projects/status/mmqiy7vr5f01lhcx?svg=true)](https://ci.appveyor.com/project/cinegy/tsdecoder)
+The decoder then exposes transport-stream tables and descriptors and allows access to individual elementary streams. For an example application, see [Cinegy TS Analyser](https://github.com/Cinegy/tsanalyser).
 
-You can check out the latest compiled binary from the master or pre-master code here:
+## Build and publish
 
-[AppVeyor TsDecoder Project Builder](https://ci.appveyor.com/project/cinegy/tsdecoder/build/artifacts)
+Build and test with the .NET 6 SDK:
 
-Available on NuGet here:
+```sh
+dotnet test Cinegy.TsDecoder.sln
+```
 
-[NuGet](https://www.nuget.org/packages/Cinegy.TsDecoder/)
+GitHub Actions publishes this fork to NuGet.org when a `v*` tag is pushed (for example, `v4.0.1`). Configure the repository secret `NUGET_API_KEY` with a NuGet.org API key that can publish `Kreisverkehr.TsDecoder`.
+
+The original project is licensed under Apache-2.0; see [LICENSE](LICENSE).

@@ -1,0 +1,50 @@
+name: Publish NuGet Package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore Cinegy.TsDecoder.sln
+
+      - name: Test
+        run: dotnet test Cinegy.TsDecoder.sln --configuration Release --no-restore
+
+      - name: Pack NuGet package
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            package_version="${GITHUB_REF_NAME#v}"
+            dotnet pack Cinegy.TsDecoder/Cinegy.TsDecoder.csproj \
+              --configuration Release \
+              --output ./nupkg \
+              --no-restore \
+              -p:PackageVersion="$package_version"
+          else
+            dotnet pack Cinegy.TsDecoder/Cinegy.TsDecoder.csproj \
+              --configuration Release \
+              --output ./nupkg \
+              --no-restore
+          fi
+
+      - name: Publish package to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push ./nupkg/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
