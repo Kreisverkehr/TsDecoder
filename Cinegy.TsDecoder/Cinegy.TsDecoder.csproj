@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net6.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<Version>4.0.0-alpha</Version>
 		<PackageId>Kreisverkehr.TsDecoder</PackageId>
 		<Authors>Lewis Kirkaldie; Kreisverkehr</Authors>
 		<Company>Kreisverkehr</Company>
-		<Description>Unofficial fork of Cinegy.TsDecoder, an MPEG2 Transport Stream decoder for .NET 6.</Description>
+		<Description>Unofficial fork of Cinegy.TsDecoder, an MPEG2 Transport Stream decoder for .NET 10.</Description>
 		<Copyright>Cinegy GmbH</Copyright>
 		<PackageTags>Transport Stream MPEGTS unofficial fork Kreisverkehr</PackageTags>
 		<PackageProjectUrl>https://github.com/Kreisverkehr/TsDecoder</PackageProjectUrl>

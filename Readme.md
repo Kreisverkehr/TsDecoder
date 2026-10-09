@@ -20,7 +20,7 @@ The decoder then exposes transport-stream tables and descriptors and allows acce
 
 ## Build and publish
 
-Build and test with the .NET 6 SDK:
+Build and test with the .NET 10 SDK:
 
 ```sh
 dotnet test Cinegy.TsDecoder.sln
