@@ -13,24 +13,27 @@
   limitations under the License.
 */
 
+// Modified by Kreisverkehr in 2026: add the EIT schedule table type.
+
 namespace Cinegy.TsDecoder.TransportStream
 {
-    public class TableChangedEventArgs : System.EventArgs
-    {
-        public int TablePid { get; set; }
-        public string Message { get; set; }
-        public TableType TableType { get; set; }
-    }
+  public class TableChangedEventArgs : System.EventArgs
+  {
+    public int TablePid { get; set; }
+    public string Message { get; set; }
+    public TableType TableType { get; set; }
+  }
 
-    public enum TableType
-    {
-        Undefined,
-        Pat,
-        Pmt,
-        Sdt,
-        Eit,
-        Nit,
-        SdtOther,
-        Bat
-    }
+  public enum TableType
+  {
+    Undefined,
+    Pat,
+    Pmt,
+    Sdt,
+    Eit,
+    Nit,
+    SdtOther,
+    Bat,
+    EitSchedule
+  }
 }

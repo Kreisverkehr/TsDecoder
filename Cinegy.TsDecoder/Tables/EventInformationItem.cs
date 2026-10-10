@@ -13,8 +13,12 @@
   limitations under the License.
 */
 
+// Modified by Kreisverkehr in 2026: expose parsed event start time and duration.
+
+using System;
 using System.Collections.Generic;
 using Cinegy.TsDecoder.Descriptors;
+using Cinegy.TsDecoder.Extensions;
 
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 
@@ -42,8 +46,10 @@ namespace Cinegy.TsDecoder.Tables
                 return string.Format("{3,00}-{4,00}-{5,00} {0:x}:{1:x}:{2:x}", (StartTime >> 16) & 0xFF, (StartTime >> 8) & 0xFF, StartTime & 0xFF, y, m, d);
             }
         }
+        public DateTime? StartDateTime => DateTime.FromTsTimestamp(StartTime);
         public uint Duration { get; set; }// 24     uimsbf
         public string DurationString => string.Format("{0:x}:{1:x}:{2:x}", (Duration >> 16) & 0xFF, (Duration >> 8) & 0xFF, Duration & 0xFF);
+        public TimeSpan DurationTimeSpan => TimeSpan.FromTsDuration(Duration);
         public byte RunningStatus { get; set; }// 3     uimsbf
         public string RunningStatusString => RunningStatusDescription[RunningStatus];
         public bool FreeCAMode { get; set; }// 1     bslbf

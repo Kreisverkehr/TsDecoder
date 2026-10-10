@@ -13,6 +13,8 @@
   limitations under the License.
 */
 
+// Modified by Kreisverkehr in 2026: decode and publish EIT schedule tables.
+
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -28,10 +30,17 @@ namespace Cinegy.TsDecoder.Tables
         /// </summary>
         public EventInformationTable EventInformationTable { get; private set; }
 
+        public EventInformationTable LastChangedTable { get; private set; }
+
         /// <summary>
         /// An agregated list of all current EventInformationItems, as pulled from all EventInformationTables with the same ID and version.
         /// </summary>
         public List<EventInformationItem> EventInformationItems { get; set; } = new List<EventInformationItem>();
+
+        /// <summary>
+        /// The decoded sections of the current-multiplex Event Information schedule tables.
+        /// </summary>
+        public List<EventInformationTable> ScheduledEventInformationTables { get; } = new List<EventInformationTable>();
 
         private new EventInformationTable InProgressTable
         {
@@ -61,13 +70,15 @@ namespace Cinegy.TsDecoder.Tables
                 InProgressTable.TableId = packet.Payload[pos];
 
                 //TODO: Refactor with enum for well-known table IDs, and add option below as filter
-                if (InProgressTable.TableId != 0x4e)
+                if (InProgressTable.TableId != 0x4e &&
+                    (InProgressTable.TableId < 0x50 || InProgressTable.TableId > 0x5f))
                 {
                     InProgressTable = null;
                     return;
                 }
 
-                if (EventInformationTable?.VersionNumber != InProgressTable.VersionNumber)
+                if (InProgressTable.TableId == 0x4e &&
+                    EventInformationTable?.VersionNumber != InProgressTable.VersionNumber)
                 {
                     //if the version number of any section jumps, we need to refresh
                     _sectionsCompleted = new HashSet<int>();
@@ -87,7 +98,19 @@ namespace Cinegy.TsDecoder.Tables
 
             if (InProgressTable == null) return;
 
-            if (_sectionsCompleted.Contains(InProgressTable.SectionNumber))
+            var isScheduledTable = InProgressTable.TableId >= 0x50;
+            if (isScheduledTable)
+            {
+                var duplicateSection = ScheduledEventInformationTables.Find(table =>
+                    HasSameScheduleIdentity(table, InProgressTable) &&
+                    table.SectionNumber == InProgressTable.SectionNumber);
+                if (duplicateSection != null && duplicateSection.VersionNumber == InProgressTable.VersionNumber)
+                {
+                    InProgressTable = null;
+                    return;
+                }
+            }
+            else if (_sectionsCompleted.Contains(InProgressTable.SectionNumber))
             {
                 InProgressTable = null;
                 return;
@@ -97,14 +120,14 @@ namespace Cinegy.TsDecoder.Tables
 
             if (!HasAllBytes()) return;
 
-            
+
 
             InProgressTable.SegmentLastSectionNumber = (Data[InProgressTable.PointerField + 13]);
             InProgressTable.LastTableId = (Data[InProgressTable.PointerField + 14]);
 
             var startOfNextField = (ushort)(InProgressTable.PointerField + 15);
 
-            var transportStreamLoopEnd = (ushort)(InProgressTable.SectionLength - 4);
+            var transportStreamLoopEnd = (ushort)(InProgressTable.PointerField + InProgressTable.SectionLength);
 
             var items = new List<EventInformationItem>();
 
@@ -125,7 +148,7 @@ namespace Cinegy.TsDecoder.Tables
                 startOfNextField = (ushort)(startOfNextField + 12);
                 var endOfDescriptors = (ushort)(startOfNextField + item.DescriptorsLoopLength);
 
-                if (endOfDescriptors > Data.Length)
+                if (endOfDescriptors > transportStreamLoopEnd || endOfDescriptors > Data.Length)
                 {
                     throw new InvalidDataException("Descriptor data in Event Information is marked beyond available data");
                 }
@@ -142,14 +165,38 @@ namespace Cinegy.TsDecoder.Tables
 
             InProgressTable.Items = items;
 
+            if (isScheduledTable)
+            {
+                var previousVersion = ScheduledEventInformationTables.Find(table => HasSameScheduleIdentity(table, InProgressTable));
+                if (previousVersion != null && previousVersion.VersionNumber != InProgressTable.VersionNumber)
+                {
+                    ScheduledEventInformationTables.RemoveAll(table => HasSameScheduleIdentity(table, InProgressTable));
+                }
+
+                ScheduledEventInformationTables.Add(InProgressTable);
+                LastChangedTable = InProgressTable;
+                OnTableChangeDetected();
+                return;
+            }
+
             EventInformationItems.AddRange(items);
-            
-            if(InProgressTable.VersionNumber == EventInformationTable?.VersionNumber) return;
+
+            if (InProgressTable.VersionNumber == EventInformationTable?.VersionNumber) return;
 
             EventInformationTable = InProgressTable;
+            LastChangedTable = InProgressTable;
             _sectionsCompleted.Add(InProgressTable.SectionNumber);
 
             OnTableChangeDetected();
+        }
+
+        private static bool HasSameScheduleIdentity(EventInformationTable left, EventInformationTable right)
+        {
+            return left.TableId == right.TableId &&
+                   left.ServiceId == right.ServiceId &&
+                   left.TransportStreamId == right.TransportStreamId &&
+                   left.OriginalNetworkId == right.OriginalNetworkId &&
+                   left.CurrentNextIndicator == right.CurrentNextIndicator;
         }
     }
 }

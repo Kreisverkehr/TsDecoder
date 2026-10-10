@@ -13,6 +13,8 @@
   limitations under the License.
 */
 
+// Modified by Kreisverkehr in 2026: expose scheduled EIT tables and their change events.
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -31,6 +33,7 @@ namespace Cinegy.TsDecoder.TransportStream
         public ServiceDescriptionTable OtherServiceDescriptionTable => _otherSdtFactory.ServiceDescriptionTable;
         public NetworkInformationTable NetworkInformationTable => _nitFactory.NetworkInformationTable;
         public EventInformationTable EventInformationTable => _eitFactory.EventInformationTable;
+        public List<EventInformationTable> ScheduledEventInformationTables => _eitFactory.ScheduledEventInformationTables;
         public SpliceInfoTable SpliceInfoTable => _sitFactory.SpliceInfoTable;
 
         public List<ProgramMapTable> ProgramMapTables { get; private set; }
@@ -399,7 +402,8 @@ namespace Cinegy.TsDecoder.TransportStream
                 if (fact == null) return;
                 message = $"EIT {e.TsPid} Refreshed:";
 
-                OnTableChangeDetected(fact, new TableChangedEventArgs() { Message = message, TablePid = e.TsPid, TableType = TableType.Eit });
+                var tableType = fact.LastChangedTable?.TableId >= 0x50 ? TableType.EitSchedule : TableType.Eit;
+                OnTableChangeDetected(fact, new TableChangedEventArgs() { Message = message, TablePid = e.TsPid, TableType = tableType });
             }
 
         }
