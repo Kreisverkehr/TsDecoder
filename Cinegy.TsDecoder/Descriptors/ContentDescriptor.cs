@@ -13,6 +13,8 @@
   limitations under the License.
 */
 
+// Modified by Kreisverkehr in 2026: expose content types as raw values and it's string conversion.
+
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -530,6 +532,14 @@ namespace Cinegy.TsDecoder.Descriptors
                 this.contentnibble2 = contentnibble2;
                 this.userdefined = userdefined;
             }
+
+            public int Level1Type => contentnibble1;
+            public string Level1TypeString => GetConentNibble1Description(Convert.ToByte(contentnibble1));
+
+            public int Level2Type => contentnibble2;
+            public string Level2TypeString => GetConentNibble2Description(Convert.ToByte(contentnibble1), Convert.ToByte(contentnibble2));
+
+            public override string ToString() => $"{Level1TypeString} {Level2TypeString}";
         }
     }
 }
