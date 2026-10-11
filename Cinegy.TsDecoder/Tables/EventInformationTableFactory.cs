@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using Cinegy.TsDecoder.Descriptors;
 using Cinegy.TsDecoder.TransportStream;
 
@@ -43,13 +44,13 @@ namespace Cinegy.TsDecoder.Tables
         /// </summary>
         public List<EventInformationTable> ScheduledEventInformationTables { get; } = new List<EventInformationTable>();
 
+        private readonly Dictionary<(byte TableId, ushort ServiceId, ushort TransportStreamId, ushort OriginalNetworkId, bool CurrentNextIndicator), TableState> _tableStates = new();
+
         private new EventInformationTable InProgressTable
         {
             get { return base.InProgressTable as EventInformationTable; }
             set { base.InProgressTable = value; }
         }
-
-        private HashSet<int> _sectionsCompleted = new HashSet<int>();
 
         public void AddPacket(TsPacket packet)
         {
@@ -118,31 +119,25 @@ namespace Cinegy.TsDecoder.Tables
                 return;
             }
 
-            if (InProgressTable.TableId == 0x4e &&
-                EventInformationTable?.VersionNumber != InProgressTable.VersionNumber)
+            var tableIdentity = GetTableIdentity(InProgressTable);
+            if (!_tableStates.TryGetValue(tableIdentity, out var tableState))
             {
-                //if the version number of any section jumps, we need to refresh
-                _sectionsCompleted = new HashSet<int>();
-                EventInformationItems = new List<EventInformationItem>();
+                tableState = new TableState(InProgressTable.VersionNumber);
+                _tableStates.Add(tableIdentity, tableState);
+            }
+            else if (tableState.VersionNumber != InProgressTable.VersionNumber)
+            {
+                tableState.Reset(InProgressTable.VersionNumber);
+                ScheduledEventInformationTables.RemoveAll(table => HasSameScheduleIdentity(table, InProgressTable));
             }
 
-            var isScheduledTable = InProgressTable.TableId >= 0x50;
-            if (isScheduledTable)
-            {
-                var duplicateSection = ScheduledEventInformationTables.Find(table =>
-                    HasSameScheduleIdentity(table, InProgressTable) &&
-                    table.SectionNumber == InProgressTable.SectionNumber);
-                if (duplicateSection != null && duplicateSection.VersionNumber == InProgressTable.VersionNumber)
-                {
-                    InProgressTable = null;
-                    return;
-                }
-            }
-            else if (_sectionsCompleted.Contains(InProgressTable.SectionNumber))
+            if (tableState.Sections.Contains(InProgressTable.SectionNumber))
             {
                 InProgressTable = null;
                 return;
             }
+
+            var isScheduledTable = InProgressTable.TableId >= 0x50;
 
             var startOfNextField = (ushort)(InProgressTable.PointerField + 15);
 
@@ -197,27 +192,30 @@ namespace Cinegy.TsDecoder.Tables
 
             if (isScheduledTable)
             {
-                var previousVersion = ScheduledEventInformationTables.Find(table => HasSameScheduleIdentity(table, InProgressTable));
-                if (previousVersion != null && previousVersion.VersionNumber != InProgressTable.VersionNumber)
-                {
-                    ScheduledEventInformationTables.RemoveAll(table => HasSameScheduleIdentity(table, InProgressTable));
-                }
-
+                tableState.Sections.Add(InProgressTable.SectionNumber);
                 ScheduledEventInformationTables.Add(InProgressTable);
                 LastChangedTable = InProgressTable;
                 OnTableChangeDetected();
                 return;
             }
 
-            EventInformationItems.AddRange(items);
-
-            if (InProgressTable.VersionNumber == EventInformationTable?.VersionNumber) return;
+            tableState.Sections.Add(InProgressTable.SectionNumber);
+            tableState.Tables[InProgressTable.SectionNumber] = InProgressTable;
+            EventInformationItems = _tableStates
+                .Where(entry => entry.Key.TableId == 0x4e)
+                .SelectMany(entry => entry.Value.Tables.Values)
+                .SelectMany(table => table.Items)
+                .ToList();
 
             EventInformationTable = InProgressTable;
             LastChangedTable = InProgressTable;
-            _sectionsCompleted.Add(InProgressTable.SectionNumber);
 
             OnTableChangeDetected();
+        }
+
+        private static (byte TableId, ushort ServiceId, ushort TransportStreamId, ushort OriginalNetworkId, bool CurrentNextIndicator) GetTableIdentity(EventInformationTable table)
+        {
+            return (table.TableId, table.ServiceId, table.TransportStreamId, table.OriginalNetworkId, table.CurrentNextIndicator);
         }
 
         private static bool HasSameScheduleIdentity(EventInformationTable left, EventInformationTable right)
@@ -227,6 +225,27 @@ namespace Cinegy.TsDecoder.Tables
                    left.TransportStreamId == right.TransportStreamId &&
                    left.OriginalNetworkId == right.OriginalNetworkId &&
                    left.CurrentNextIndicator == right.CurrentNextIndicator;
+        }
+
+        private sealed class TableState
+        {
+            public TableState(byte versionNumber)
+            {
+                VersionNumber = versionNumber;
+            }
+
+            public byte VersionNumber { get; private set; }
+
+            public HashSet<byte> Sections { get; } = new HashSet<byte>();
+
+            public Dictionary<byte, EventInformationTable> Tables { get; } = new Dictionary<byte, EventInformationTable>();
+
+            public void Reset(byte versionNumber)
+            {
+                VersionNumber = versionNumber;
+                Sections.Clear();
+                Tables.Clear();
+            }
         }
     }
 }

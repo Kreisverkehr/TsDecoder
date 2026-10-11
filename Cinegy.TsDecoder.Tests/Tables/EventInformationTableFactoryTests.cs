@@ -75,6 +75,38 @@ namespace Cinegy.TsDecoder.Tests.Tables
         }
 
         [Test]
+        public void AddPacket_PreservesInterleavedPresentFollowingSectionsAcrossServices()
+        {
+            var factory = new EventInformationTableFactory();
+            var changeCount = 0;
+            factory.TableChangeDetected += (_, _) => changeCount++;
+
+            factory.AddPacket(CreatePacket(0x4e, 0, 0, eventId: 100, serviceId: 1));
+            factory.AddPacket(CreatePacket(0x4e, 0, 0, eventId: 200, serviceId: 2));
+            factory.AddPacket(CreatePacket(0x4e, 1, 0, eventId: 101, serviceId: 1));
+            factory.AddPacket(CreatePacket(0x4e, 1, 0, eventId: 201, serviceId: 2));
+            factory.AddPacket(CreatePacket(0x4e, 1, 0, eventId: 201, serviceId: 2));
+
+            Assert.That(changeCount, Is.EqualTo(4));
+            Assert.That(factory.EventInformationItems.ConvertAll(item => item.EventId),
+                Is.EquivalentTo(new ushort[] { 100, 200, 101, 201 }));
+        }
+
+        [Test]
+        public void AddPacket_ResetsOnlyChangedPresentFollowingTableVersion()
+        {
+            var factory = new EventInformationTableFactory();
+
+            factory.AddPacket(CreatePacket(0x4e, 0, 0, eventId: 100, serviceId: 1));
+            factory.AddPacket(CreatePacket(0x4e, 0, 0, eventId: 200, serviceId: 2));
+            factory.AddPacket(CreatePacket(0x4e, 1, 0, eventId: 101, serviceId: 1));
+            factory.AddPacket(CreatePacket(0x4e, 0, 1, eventId: 110, serviceId: 1));
+
+            Assert.That(factory.EventInformationItems.ConvertAll(item => item.EventId),
+                Is.EquivalentTo(new ushort[] { 200, 110 }));
+        }
+
+        [Test]
         public void AddPacket_IgnoresDuplicateSectionsAndReplacesOnlyChangedScheduleVersion()
         {
             var factory = new EventInformationTableFactory();

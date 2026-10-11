@@ -1,11 +1,16 @@
 Kreisverkehr.TsDecoder
 Copyright 2017-2023 Cinegy GmbH for the original Cinegy.TsDecoder work.
+Copyright 2026 Kreisverkehr for modifications and extensions in this fork.
 
 This package is an unofficial fork of Cinegy.TsDecoder. Changes by Kreisverkehr
 include support for current-multiplex EIT schedule tables, scheduled-table
 change notifications, transport-stream timestamp and duration conversions,
 tests for EIT schedule decoding, EIT parsing fixes for pointer fields, section
 assembly, and descriptor loop boundaries, and PAT section assembly across
-multiple transport packets. These changes are licensed under the Apache
-License, Version 2.0. The original work and this fork are distributed under
-the Apache License, Version 2.0; see the accompanying LICENSE file.
+multiple transport packets.
+
+The original work and this fork are distributed under the Apache License,
+Version 2.0. Any redistributed source, binary, or package must retain the
+accompanying LICENSE file and a copy of this NOTICE file. The Apache License
+text is included in LICENSE and applies to all portions of this project unless
+otherwise stated.

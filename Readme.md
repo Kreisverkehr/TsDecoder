@@ -32,4 +32,4 @@ dotnet test Cinegy.TsDecoder.sln
 
 GitHub Actions publishes this fork to NuGet.org when a `v*` tag is pushed (for example, `v4.0.1`). Configure the repository secret `NUGET_API_KEY` with a NuGet.org API key that can publish `Kreisverkehr.TsDecoder`.
 
-The original project is licensed under Apache-2.0; see [LICENSE](LICENSE).
+The original project and this fork are licensed under Apache-2.0. See [LICENSE](LICENSE) for the full text and [NOTICE](NOTICE) for the required attribution notice that must be retained in redistributions and derived package distributions.
