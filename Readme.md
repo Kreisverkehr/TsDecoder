@@ -20,7 +20,7 @@ The decoder then exposes transport-stream tables and descriptors and allows acce
 
 ## Overview
 
-The decoder processes MPEG-2 transport-stream data and exposes tables, descriptors, and elementary streams. EIT decoding covers present/following information and schedule tables, including sections that continue across packets and their event descriptors.
+The decoder processes MPEG-2 transport-stream data and exposes tables, descriptors, and elementary streams. PAT and EIT sections can span multiple transport packets. EIT decoding covers present/following information and schedule tables, including their event descriptors.
 
 ## Build and publish
 
