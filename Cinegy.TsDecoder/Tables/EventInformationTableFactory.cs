@@ -13,8 +13,9 @@
   limitations under the License.
 */
 
-// Modified by Kreisverkehr in 2026: decode and publish EIT schedule tables.
+// Modified by Kreisverkehr in 2026: decode EIT schedules and fix section and descriptor parsing.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -56,6 +57,28 @@ namespace Cinegy.TsDecoder.Tables
 
             if (packet.PayloadUnitStartIndicator)
             {
+                if (InProgressTable != null)
+                {
+                    var continuationLength = packet.Payload[0];
+
+                    if (continuationLength > 0)
+                    {
+                        if (1 + continuationLength > packet.PayloadLen)
+                        {
+                            InProgressTable = null;
+                            return;
+                        }
+
+                        var continuationPacket = packet;
+                        continuationPacket.Payload = new byte[continuationLength];
+                        Buffer.BlockCopy(packet.Payload, 1, continuationPacket.Payload, 0, continuationLength);
+                        continuationPacket.PayloadLen = continuationLength;
+                        continuationPacket.PayloadUnitStartIndicator = false;
+
+                        AddPacket(continuationPacket);
+                    }
+                }
+
                 InProgressTable = new EventInformationTable { Pid = packet.Pid, PointerField = packet.Payload[0] };
 
                 if (InProgressTable.PointerField > packet.PayloadLen)
@@ -65,38 +88,43 @@ namespace Cinegy.TsDecoder.Tables
 
                 var pos = 1 + InProgressTable.PointerField;
 
-                InProgressTable.VersionNumber = (byte)(packet.Payload[pos + 5] & 0x3E);
-
                 InProgressTable.TableId = packet.Payload[pos];
-
-                //TODO: Refactor with enum for well-known table IDs, and add option below as filter
-                if (InProgressTable.TableId != 0x4e &&
-                    (InProgressTable.TableId < 0x50 || InProgressTable.TableId > 0x5f))
-                {
-                    InProgressTable = null;
-                    return;
-                }
-
-                if (InProgressTable.TableId == 0x4e &&
-                    EventInformationTable?.VersionNumber != InProgressTable.VersionNumber)
-                {
-                    //if the version number of any section jumps, we need to refresh
-                    _sectionsCompleted = new HashSet<int>();
-                    EventInformationItems = new List<EventInformationItem>();
-                }
-
                 InProgressTable.SectionLength =
-                    (ushort)(((packet.Payload[pos + 1] & 0x3) << 8) + packet.Payload[pos + 2]);
-
-                InProgressTable.ServiceId = (ushort)((packet.Payload[pos + 3] << 8) + packet.Payload[pos + 4]);
-                InProgressTable.CurrentNextIndicator = (packet.Payload[pos + 5] & 0x1) != 0;
-                InProgressTable.SectionNumber = packet.Payload[pos + 6];
-                InProgressTable.LastSectionNumber = packet.Payload[pos + 7];
-                InProgressTable.TransportStreamId = (ushort)((packet.Payload[pos + 8] << 8) + packet.Payload[pos + 9]);
-                InProgressTable.OriginalNetworkId = (ushort)((packet.Payload[pos + 10] << 8) + packet.Payload[pos + 11]);
+                    (ushort)(((packet.Payload[pos + 1] & 0x0F) << 8) + packet.Payload[pos + 2]);
             }
 
             if (InProgressTable == null) return;
+
+            AddData(packet);
+
+            if (!HasAllBytes()) return;
+
+            var pointer = InProgressTable.PointerField;
+            InProgressTable.ServiceId = (ushort)((Data[pointer + 4] << 8) + Data[pointer + 5]);
+            InProgressTable.VersionNumber = (byte)(Data[pointer + 6] & 0x3E);
+            InProgressTable.CurrentNextIndicator = (Data[pointer + 6] & 0x1) != 0;
+            InProgressTable.SectionNumber = Data[pointer + 7];
+            InProgressTable.LastSectionNumber = Data[pointer + 8];
+            InProgressTable.TransportStreamId = (ushort)((Data[pointer + 9] << 8) + Data[pointer + 10]);
+            InProgressTable.OriginalNetworkId = (ushort)((Data[pointer + 11] << 8) + Data[pointer + 12]);
+            InProgressTable.SegmentLastSectionNumber = Data[pointer + 13];
+            InProgressTable.LastTableId = Data[pointer + 14];
+
+            //TODO: Refactor with enum for well-known table IDs, and add option below as filter
+            if (InProgressTable.TableId != 0x4e &&
+                (InProgressTable.TableId < 0x50 || InProgressTable.TableId > 0x5f))
+            {
+                InProgressTable = null;
+                return;
+            }
+
+            if (InProgressTable.TableId == 0x4e &&
+                EventInformationTable?.VersionNumber != InProgressTable.VersionNumber)
+            {
+                //if the version number of any section jumps, we need to refresh
+                _sectionsCompleted = new HashSet<int>();
+                EventInformationItems = new List<EventInformationItem>();
+            }
 
             var isScheduledTable = InProgressTable.TableId >= 0x50;
             if (isScheduledTable)
@@ -116,15 +144,6 @@ namespace Cinegy.TsDecoder.Tables
                 return;
             }
 
-            AddData(packet);
-
-            if (!HasAllBytes()) return;
-
-
-
-            InProgressTable.SegmentLastSectionNumber = (Data[InProgressTable.PointerField + 13]);
-            InProgressTable.LastTableId = (Data[InProgressTable.PointerField + 14]);
-
             var startOfNextField = (ushort)(InProgressTable.PointerField + 15);
 
             var transportStreamLoopEnd = (ushort)(InProgressTable.PointerField + InProgressTable.SectionLength);
@@ -140,7 +159,7 @@ namespace Cinegy.TsDecoder.Tables
                     Duration = (uint)((Data[startOfNextField + 7] << 16) + (Data[startOfNextField + 8] << 8) + Data[startOfNextField + 9]),
                     RunningStatus = (byte)((Data[startOfNextField + 10] >> 5) & 0x07),
                     FreeCAMode = ((Data[startOfNextField + 10] & 0x10) == 0x10),
-                    DescriptorsLoopLength = (ushort)(((Data[startOfNextField + 10] & 0x3) << 8) + Data[startOfNextField + 11])
+                    DescriptorsLoopLength = (ushort)(((Data[startOfNextField + 10] & 0xF) << 8) + Data[startOfNextField + 11])
                 };
 
                 var descriptors = new List<Descriptor>();
@@ -155,9 +174,20 @@ namespace Cinegy.TsDecoder.Tables
 
                 while (startOfNextField < endOfDescriptors)
                 {
+                    if (endOfDescriptors - startOfNextField < 2)
+                    {
+                        throw new InvalidDataException("Incomplete descriptor header in Event Information");
+                    }
+
+                    var descriptorEnd = startOfNextField + 2 + Data[startOfNextField + 1];
+                    if (descriptorEnd > endOfDescriptors)
+                    {
+                        throw new InvalidDataException("Descriptor exceeds its Event Information loop");
+                    }
+
                     var des = DescriptorFactory.DescriptorFromData(Data, startOfNextField);
                     descriptors.Add(des);
-                    startOfNextField += (ushort)(des.DescriptorLength + 2);
+                    startOfNextField = (ushort)descriptorEnd;
                 }
                 item.Descriptors = descriptors;
                 items.Add(item);

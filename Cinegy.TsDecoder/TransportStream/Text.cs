@@ -1,4 +1,6 @@
 ﻿/* Copyright 2017-2022 Cinegy GmbH. */
+// Modified by Kreisverkehr in 2026: handle uninitialized text safely when converting to a string.
+
 using System;
 using System.Text;
 
@@ -40,7 +42,7 @@ namespace Cinegy.TsDecoder.TransportStream
 
         public override string ToString()
         {
-            if (_characters.Length == 0)
+            if (_characters is null || _characters.Length == 0)
             {
                 return "";
             }

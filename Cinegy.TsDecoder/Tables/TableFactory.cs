@@ -13,6 +13,8 @@
   limitations under the License.
 */
 
+// Modified by Kreisverkehr in 2026: account for pointer fields when assembling table sections.
+
 using System;
 using System.Collections.Generic;
 using Cinegy.TsDecoder.Descriptors;
@@ -61,7 +63,7 @@ namespace Cinegy.TsDecoder.Tables
         
         internal bool HasAllBytes()
         {
-            return _tableBytes >= InProgressTable.SectionLength + 3 && InProgressTable.SectionLength > 0;
+            return _tableBytes >= InProgressTable.SectionLength + InProgressTable.PointerField + 4 && InProgressTable.SectionLength > 0;
         }
 
         internal void CheckPid(int newPid)
@@ -87,7 +89,7 @@ namespace Cinegy.TsDecoder.Tables
 
             if (packet.PayloadUnitStartIndicator)
             {
-                Data = new byte[InProgressTable.SectionLength + 3];
+                Data = new byte[InProgressTable.SectionLength + InProgressTable.PointerField + 4];
                 _tableBytes = 0;
             }
 
@@ -97,15 +99,15 @@ namespace Cinegy.TsDecoder.Tables
                 return;
             }
 
-            if ((InProgressTable.SectionLength + 3 - _tableBytes) > packet.PayloadLen)
+            if ((InProgressTable.SectionLength + InProgressTable.PointerField + 4 - _tableBytes) > packet.PayloadLen)
             {
                 Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, packet.PayloadLen);
                 _tableBytes += (ushort)(packet.PayloadLen);
             }
             else
             {
-                Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, (InProgressTable.SectionLength + 3 - _tableBytes));
-                _tableBytes += (ushort)(InProgressTable.SectionLength + 3 - _tableBytes);
+                Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, (InProgressTable.SectionLength + InProgressTable.PointerField + 4 - _tableBytes));
+                _tableBytes += (ushort)(InProgressTable.SectionLength + 4 - _tableBytes);
             }
         }
         
@@ -127,6 +129,7 @@ namespace Cinegy.TsDecoder.Tables
             
             var args = new TransportStreamEventArgs { TsPid = generatingPid };
             handler(this, args);
+            InProgressTable = null;
         }
     }
 }

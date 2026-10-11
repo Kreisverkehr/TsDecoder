@@ -18,6 +18,10 @@ _tsDecoder.AddData(byteArrayData);
 
 The decoder then exposes transport-stream tables and descriptors and allows access to individual elementary streams. For an example application, see [Cinegy TS Analyser](https://github.com/Cinegy/tsanalyser).
 
+## Overview
+
+The decoder processes MPEG-2 transport-stream data and exposes tables, descriptors, and elementary streams. EIT decoding covers present/following information and schedule tables, including sections that continue across packets and their event descriptors.
+
 ## Build and publish
 
 Build and test with the .NET 10 SDK:
