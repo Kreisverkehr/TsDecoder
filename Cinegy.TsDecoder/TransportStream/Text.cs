@@ -2,6 +2,7 @@
 // Modified by Kreisverkehr in 2026: handle uninitialized text safely when converting to a string.
 
 using System;
+using System.Linq;
 using System.Text;
 
 namespace Cinegy.TsDecoder.TransportStream
@@ -42,78 +43,54 @@ namespace Cinegy.TsDecoder.TransportStream
 
         public override string ToString()
         {
-            if (_characters is null || _characters.Length == 0)
-            {
-                return "";
-            }
-            var ret = new byte[_characters.Length * 2]; //set to twice possible size to prevent repeat CRLF char doubles overflowing
-            var char0 = _characters[0];
-            ushort start;
-            var characterTable = "ISO-8859-1";
-            var ii = 0;
-            if (_characters[0] >= 0x20 && _characters[0] <= 0xFF)
-            {
-                start = 0;
-            }
-            else
-            {
-                start = 1;
+            if (!_characters?.Any() ?? true)
+                return string.Empty;
 
-                switch (char0)
-                {
-                    case 0x01: characterTable = "ISO-8859-5"; break;
-                    case 0x02: characterTable = "ISO-8859-6"; break;
-                    case 0x03: characterTable = "ISO-8859-7"; break;
-                    case 0x04: characterTable = "ISO-8859-8"; break;
-                    case 0x05: characterTable = "ISO-8859-9"; break;
-                    case 0x06: characterTable = "ISO-8859-10"; break;
-                    case 0x07: characterTable = "ISO-8859-11"; break;
-                    case 0x09: characterTable = "ISO-8859-13"; break;
-                    case 0x0A: characterTable = "ISO-8859-14"; break;
-                    case 0x0B: characterTable = "ISO-8859-15"; break;
-                    case 0x10: characterTable = "ISO-8859"; break;
-                    case 0x11: characterTable = "ISO-10646"; break;
-                    case 0x12: characterTable = "KSX1001-2004"; break;
-                    case 0x13: characterTable = "GB-2312-1980"; break;
-                    case 0x14: characterTable = "Big5"; break;
-                    case 0x15: characterTable = "UTF-8 "; break;
-                }
-            }
+            // ensure codepages are available
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            for (int i = start; i < _characters.Length; i++)
+            try
             {
-                var character = _characters[i];
-                if (character >= 0x80 && character <= 0x9F)
+                // first byte 0x15 marks utf8 text
+                if (_characters[0] == 0x15)
+                    return Encoding.UTF8.GetString(_characters[1..]).TrimEnd('\0', ' ');
+
+                // first byte 0x10 marks a dynamically selected coding table identified by the following two bytes
+                // luckily they correspond to the codepage numbers nicely and we only need to add an offset and
+                // exclude some reserved values
+                if (_characters[0] == 0x10 && _characters.Length >= 3 
+                    && _characters[1] == 0x00
+                    && _characters[2] <= 0x0F
+                    && _characters[2] != 0x0C
+                    && _characters[2] != 0x00)
+                    return Encoding.GetEncoding(28590 + _characters[2]).GetString(_characters[3..]).TrimEnd('\0', ' ');
+
+                // first byte directly specifies the coding table and with an offset we can calculate the codepage numer
+                if (_characters[0] is >= 0x01 and <= 0x0b)
                 {
-                    switch (character)
+                    var isoNumber = _characters[0] switch
                     {
-                        case 0x80: break;
-                        case 0x81: break;
-                        case 0x82: break;
-                        case 0x83: break;
-                        case 0x84: break;
-                        case 0x85: break;
-                        case 0x86: break;
-                        case 0x87: break;
-                        case 0x88: break;
-                        case 0x8A: ret[ii++] = 10; ret[ii++] = 13; break;
-                        case 0x8B: break;
-                        case 0x8C: break;
-                        case 0x8D: break;
-                        case 0x8E: break;
-                        case 0x8F: break;
-                        // ReSharper disable once RedundantEmptyDefaultSwitchBranch
-                        default: break;
-                    }
+                        <= 0x07 => _characters[0] + 4,
+                        0x09 => 13,
+                        0x0a => 14,
+                        _ => 15,
+                    };
+                    return Encoding.GetEncoding(28590 + isoNumber).GetString(_characters[1..]).TrimEnd('\0', ' ');
                 }
-                else if (character != 0)
-                {
-                    ret[ii++] = character;
-                }
-            }
 
-            var result = Encoding.GetEncoding(characterTable).GetString(Encoding.Convert(Encoding.GetEncoding(characterTable), Encoding.GetEncoding(characterTable), ret)).Substring(0, ii);
-            return result;
+                // first byte is 0x1F. This specifies that the second byte is an encoding_type_id which broadcasters can 
+                // register. What that means? Only the broadcaster knows. Hopefully the Latin1 encoding will get somethin 
+                // usefull...
+                if (_characters[0] == 0x1F)
+                    return Encoding.Latin1.GetString(_characters[1..]).TrimEnd('\0', ' ');    
+
+                // if none of these conditions match there is no marker for the coding table
+                return Encoding.Latin1.GetString(_characters).TrimEnd('\0', ' ');
+            }
+            catch (ArgumentException)
+            {
+                return Encoding.Latin1.GetString(_characters).TrimEnd('\0', ' ');
+            }
         }
     }
 }
