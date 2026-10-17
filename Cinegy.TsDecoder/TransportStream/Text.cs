@@ -1,5 +1,5 @@
 ﻿/* Copyright 2017-2022 Cinegy GmbH. */
-// Modified by Kreisverkehr in 2026: handle uninitialized text safely when converting to a string.
+// Modified by Kreisverkehr in 2026: rewrote the text decoder to be more failsafe.
 
 using System;
 using System.Linq;
