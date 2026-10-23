@@ -106,8 +106,9 @@ namespace Cinegy.TsDecoder.Tables
             }
             else
             {
-                Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, (InProgressTable.SectionLength + InProgressTable.PointerField + 4 - _tableBytes));
-                _tableBytes += (ushort)(InProgressTable.SectionLength + 4 - _tableBytes);
+                var bytesToCopy = InProgressTable.SectionLength + InProgressTable.PointerField + 4 - _tableBytes;
+                Buffer.BlockCopy(packet.Payload, 0, Data, _tableBytes, bytesToCopy);
+                _tableBytes += (ushort)bytesToCopy;
             }
         }
         

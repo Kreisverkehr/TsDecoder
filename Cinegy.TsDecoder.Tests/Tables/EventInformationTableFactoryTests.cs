@@ -39,6 +39,36 @@ namespace Cinegy.TsDecoder.Tests.Tables
         }
 
         [Test]
+        public void AddPacket_CompletesSectionWhenPointerFieldIsNonZero()
+        {
+            var factory = new EventInformationTableFactory();
+            var packet = CreatePacket(0x50, 0, 0, eventId: 42);
+            var payloadWithPointer = new byte[packet.PayloadLen + 3];
+            payloadWithPointer[0] = 3;
+            System.Buffer.BlockCopy(packet.Payload, 1, payloadWithPointer, 4, packet.PayloadLen - 1);
+            packet.Payload = payloadWithPointer;
+            packet.PayloadLen = payloadWithPointer.Length;
+
+            factory.AddPacket(packet);
+
+            Assert.That(factory.ScheduledEventInformationTables, Has.Count.EqualTo(1));
+            Assert.That(factory.ScheduledEventInformationTables[0].Items[0].EventId, Is.EqualTo(42));
+        }
+
+        [Test]
+        public void AddPacket_DropsSectionWithInvalidCrc()
+        {
+            var factory = new EventInformationTableFactory();
+            var packet = CreatePacket(0x50, 0, 0, eventId: 1);
+            packet.Payload[27] ^= 0x01;
+
+            factory.AddPacket(packet);
+
+            Assert.That(factory.ScheduledEventInformationTables, Is.Empty);
+            Assert.That(factory.CorruptedPackets, Is.EqualTo(1));
+        }
+
+        [Test]
         public void AddPacket_PreservesInterleavedScheduleSectionsAndTheirEvents()
         {
             var factory = new EventInformationTableFactory();
@@ -150,6 +180,12 @@ namespace Cinegy.TsDecoder.Tests.Tables
             payload[25] = 0;
             payload[26] = 0;
 
+            var crc = ComputeMpeg2Crc(payload, 1, sectionLength - 1);
+            payload[27] = (byte)(crc >> 24);
+            payload[28] = (byte)(crc >> 16);
+            payload[29] = (byte)(crc >> 8);
+            payload[30] = (byte)crc;
+
             return new TsPacket
             {
                 Pid = (ushort)PidType.EitPid,
@@ -157,6 +193,23 @@ namespace Cinegy.TsDecoder.Tests.Tables
                 Payload = payload,
                 PayloadLen = payload.Length
             };
+        }
+
+        private static uint ComputeMpeg2Crc(byte[] data, int offset, int length)
+        {
+            const uint polynomial = 0x04C11DB7;
+            var crc = uint.MaxValue;
+
+            for (var i = offset; i < offset + length; i++)
+            {
+                crc ^= (uint)data[i] << 24;
+                for (var bit = 0; bit < 8; bit++)
+                {
+                    crc = (crc & 0x80000000) != 0 ? (crc << 1) ^ polynomial : crc << 1;
+                }
+            }
+
+            return crc;
         }
     }
 }

@@ -119,6 +119,19 @@ namespace Cinegy.TsDecoder.Tables
                 return;
             }
 
+            var sectionStart = InProgressTable.PointerField + 1;
+            var crcPosition = InProgressTable.PointerField + InProgressTable.SectionLength;
+            var expectedCrc = (uint)((Data[crcPosition] << 24) |
+                                     (Data[crcPosition + 1] << 16) |
+                                     (Data[crcPosition + 2] << 8) |
+                                     Data[crcPosition + 3]);
+            if (ComputeMpeg2Crc(Data, sectionStart, crcPosition - sectionStart) != expectedCrc)
+            {
+                CorruptedPackets++;
+                InProgressTable = null;
+                return;
+            }
+
             var tableIdentity = GetTableIdentity(InProgressTable);
             if (!_tableStates.TryGetValue(tableIdentity, out var tableState))
             {
@@ -211,6 +224,23 @@ namespace Cinegy.TsDecoder.Tables
             LastChangedTable = InProgressTable;
 
             OnTableChangeDetected();
+        }
+
+        private static uint ComputeMpeg2Crc(byte[] data, int offset, int length)
+        {
+            const uint polynomial = 0x04C11DB7;
+            var crc = uint.MaxValue;
+
+            for (var i = offset; i < offset + length; i++)
+            {
+                crc ^= (uint)data[i] << 24;
+                for (var bit = 0; bit < 8; bit++)
+                {
+                    crc = (crc & 0x80000000) != 0 ? (crc << 1) ^ polynomial : crc << 1;
+                }
+            }
+
+            return crc;
         }
 
         private static (byte TableId, ushort ServiceId, ushort TransportStreamId, ushort OriginalNetworkId, bool CurrentNextIndicator) GetTableIdentity(EventInformationTable table)
