@@ -1,5 +1,7 @@
 ﻿# Kreisverkehr.TsDecoder
 
+> **Sunset notice:** This fork is no longer actively maintained and will not be developed further. I started [DvbMetadataDecoder](https://github.com/Kreisverkehr/DvbMetadataDecoder) as a clean, independent implementation rather than continuing this fork, with the goal of keeping the decoder understandable and straightforward to improve. I would be glad if you chose to use it. It is an early work in progress, so protocol coverage is incomplete and its APIs may change. The original [Cinegy/TsDecoder project](https://github.com/Cinegy/TsDecoder) remains an alternative.
+
 An **unofficial fork** of [Cinegy/TsDecoder](https://github.com/Cinegy/TsDecoder), maintained and published independently by Kreisverkehr. This project and the `Kreisverkehr.TsDecoder` NuGet package are not affiliated with, endorsed by, or published by Cinegy GmbH. For the original project and its official package, use the links above.
 
 The fork keeps the existing `Cinegy.TsDecoder` .NET namespaces for API compatibility. Its separately named NuGet package is:
